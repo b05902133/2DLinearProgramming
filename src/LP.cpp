@@ -70,7 +70,20 @@ double LP2D::iterate()
     optPosition = evalOptPosition();
 
     if( optPosition == RelativePosition::noSolution ) return numeric_limits<double>::max();
-    if( optPosition == RelativePosition::equal      ) return mXm;
+    if( optPosition == RelativePosition::equal      )
+    {
+      size_t i;
+
+      for( i = 0 ; i < rxs.size() ; ++i )
+         if( rxs[i] == mXm ) break;
+
+      const Constraint  &constraint = *get<1>( rxSources[i] );
+      const double      a           = get<0>( constraint    );
+      const double      b           = get<1>( constraint    );
+      const double      c           = get<2>( constraint    );
+
+      return ( c - a * mXm ) / b;
+    }
 
     if( optPosition == RelativePosition::left )
     {
