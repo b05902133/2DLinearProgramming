@@ -61,7 +61,9 @@ double LP2D::iterate()
     collectRxs( mIp, IType::plus,   rxs, rxSources );
     collectRxs( mIn, IType::minus,  rxs, rxSources );
 
-    mXm = selectEngine.select( rxs, rxs.size() / 2 );
+    if( rxs.empty() ) continue;
+
+    mXm = selectEngine.select( rxs, rxs.size() / 2 + 1 );
 
     evalParams();
 
