@@ -224,7 +224,7 @@ void LP2D::evalParams()
      double c     = get<2>( constraint );
      double slope = -a / b;
 
-     if( a * mXm + b * mAlpha != c ) continue;
+     if( round( a * mXm + b * mAlpha ) != c ) continue;
 
      get<0>( mS ) = min( get<0>( mS ), slope );
      get<1>( mS ) = max( get<1>( mS ), slope );
@@ -232,14 +232,14 @@ void LP2D::evalParams()
   // end evaluate s_max, s_min
 
   // evaluate t_max, t_min
-  for( const Constraint &constraint : mIn )
+  for( const Constraint &constraint : mIp )
   {
      double a     = get<0>( constraint );
      double b     = get<1>( constraint );
      double c     = get<2>( constraint );
      double slope = -a / b;
 
-     if( a * mXm + b * mAlpha != c ) continue;
+     if( round( a * mXm + b * mBeta ) != c ) continue;
 
      get<0>( mT ) = min( get<0>( mT ), slope );
      get<1>( mT ) = max( get<1>( mT ), slope );
