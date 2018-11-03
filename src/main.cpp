@@ -29,7 +29,7 @@ int main()
 
   if( yMin == numeric_limits<double>::max() ) // nosolution
     cout << "NA\n";
-  else if( yMin == numeric_limits<double>::min() ) // -infinity
+  else if( yMin == numeric_limits<double>::lowest() ) // -infinity
     cout << "-INF\n";
   else
     cout << yMin << "\n";

@@ -20,7 +20,7 @@ double LP2D::solve( const std::vector<Constraint> &constraints )
 // private member functions
 void LP2D::init( const std::vector<Constraint> &constraints )
 {
-  mXl = numeric_limits<double>::min();
+  mXl = numeric_limits<double>::lowest();
   mXr = numeric_limits<double>::max();
 
   for( const Constraint &constraint : constraints )
@@ -174,12 +174,12 @@ void LP2D::collectRxs(  ConstraintList &I, IType iType,
 
 void LP2D::evalParams()
 {
-  mAlpha        = numeric_limits<double>::min();
+  mAlpha        = numeric_limits<double>::lowest();
   mBeta         = numeric_limits<double>::max();
   get<0>( mS )  = numeric_limits<double>::max();
-  get<1>( mS )  = numeric_limits<double>::min();
+  get<1>( mS )  = numeric_limits<double>::lowest();
   get<0>( mT )  = numeric_limits<double>::max();
-  get<1>( mT )  = numeric_limits<double>::min();
+  get<1>( mT )  = numeric_limits<double>::lowest();
 
   // evaluate alpha y
   for( const Constraint &constraint : mIn )
@@ -260,7 +260,7 @@ double LP2D::solveReduced()
 {
   assert( mIn.empty() || mIn.size() + mIp.size() <= mSizeSmall ); // precondition
 
-  if( mIn.size() < mSizeSmall ) return numeric_limits<double>::min();
+  if( mIn.size() < mSizeSmall ) return numeric_limits<double>::lowest();
 
   Iterator  it1 = mIn.begin();
   Iterator  it2 = ++mIn.begin();
