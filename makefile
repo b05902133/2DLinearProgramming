@@ -16,7 +16,7 @@ all: debug
 ${PROG}:
 	${MAKE} -C ${srcDir}
 
-release: CXXFLAGS += -O2
+release: CXXFLAGS += -O2 -DNDEBUG
 release: ${PROG}
 
 debug: CXXFLAGS += -g -Wall

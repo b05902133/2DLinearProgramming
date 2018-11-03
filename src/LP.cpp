@@ -4,6 +4,10 @@
 #include <cassert>
 #include <algorithm>
 #include <vector>
+
+#ifndef NDEBUG
+#include <iostream>
+#endif
 using namespace std;
 
 #include "Select.h"
@@ -53,6 +57,10 @@ double LP2D::iterate()
 
   while( !mIn.empty() && mIp.size() + mIn.size() > mSizeSmall )
   {
+#ifndef NDEBUG
+    clog << "I+ size: " << mIp.size() << "\t I- size:" << mIn.size() << "\n";
+#endif
+
     vector<double>    rxs;
     vector<RxSource>  rxSources;
     Select            selectEngine;
@@ -272,6 +280,10 @@ LP2D::RelativePosition LP2D::evalOptPosition()
 double LP2D::solveReduced()
 {
   assert( mIn.empty() || mIn.size() + mIp.size() <= mSizeSmall ); // precondition
+
+#ifndef NDEBUG
+  clog << "solve reduced probem\n";
+#endif
 
   if( mIn.size() < mSizeSmall ) return numeric_limits<double>::lowest();
 
