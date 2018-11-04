@@ -4,6 +4,7 @@
 #include <cassert>
 #include <algorithm>
 #include <vector>
+#include <cmath>
 
 #ifndef NDEBUG
 #include <iostream>
