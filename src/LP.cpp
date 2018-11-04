@@ -13,6 +13,13 @@ using namespace std;
 #include "Select.h"
 
 // public member functions
+/*!
+ *  \return
+ *
+ *    - numeric_limits<double>::min():  -infinity
+ *    - numeric_limits<double>::max():  no solution
+ *    - else value:                     minimun y value
+ */
 double LP2D::solve( const std::vector<Constraint> &constraints )
 {
   init( constraints );
@@ -285,18 +292,101 @@ double LP2D::solveReduced()
   clog << "solve reduced probem\n";
 #endif
 
-  if( mIn.size() < mSizeSmall ) return numeric_limits<double>::lowest();
+  if( mIn.empty() ) return numeric_limits<double>::lowest();
 
-  Iterator  it1 = mIn.begin();
-  Iterator  it2 = ++mIn.begin();
-  double    a1  = get<0>( *it1 );
-  double    b1  = get<1>( *it1 );
-  double    c1  = get<2>( *it1 );
-  double    a2  = get<0>( *it2 );
-  double    b2  = get<1>( *it2 );
-  double    c2  = get<2>( *it2 );
+  ConstraintList constraints;
 
-  return ( a1 * c2 - a2 * c1 ) / ( a1 * b2 - a2 * b1 );
+  constraints.insert( constraints.end(), mIp.begin(), mIp.end() );
+  constraints.insert( constraints.end(), mIn.begin(), mIn.end() );
+
+  Iterator it1 = constraints.begin();
+  Iterator it2 = ++constraints.begin();
+
+  // make sure slope of it1 > slope of it2
+  if( -get<0>( *it1 ) / get<1>( *it1 ) < -get<0>( *it2 ) / get<1>( *it2 ) )
+    swap( it1, it2 );
+
+  double a1     = get<0>( *it1 );
+  double b1     = get<1>( *it1 );
+  double c1     = get<2>( *it1 );
+  double a2     = get<0>( *it2 );
+  double b2     = get<1>( *it2 );
+  double c2     = get<2>( *it2 );
+  double slope1 = -a1 / b1;
+  double slope2 = -a2 / b2;
+
+  if      ( slope2 > 0 )  // all slope > 0
+  {
+    if      ( b1 > 0 && b2 < 0 )  // quadrant I
+    {
+      double x = ( b2 * c1 - b1 * c2 ) / ( a1 * b2 - a2 * b1 );
+
+      if( x > mXr ) return numeric_limits<double>::max();
+      if( x < mXl ) return ( -a2 * mXl + c2 ) / b2;
+
+      return ( a1 * c2 - a2 * c1 ) / ( a1 * b2 - a2 * b1 );
+    }
+    else if ( b1 < 0 && b2 > 0 )  // quadrant III
+    {
+      if( mXl != numeric_limits<double>::lowest() ) return ( -a1 * mXl + c1 ) / b1;
+
+      return numeric_limits<double>::lowest();
+    }
+    else                          // quadrant II
+    {
+      if( mXl != numeric_limits<double>::lowest() ) return ( -a2 * mXl + c2 ) / b2;
+
+      return numeric_limits<double>::lowest();
+    }
+  }
+  else if ( slope1 < 0 )  // all slope < 0
+  {
+    if      ( b1 < 0 && b2 > 0 )  // quadrant II
+    {
+      double x = ( b2 * c1 - b1 * c2 ) / ( a1 * b2 - a2 * b1 );
+
+      if( x < mXl ) return numeric_limits<double>::max();
+      if( x > mXr ) return ( -a1 * mXr + c1 ) / b1;
+
+      return ( a1 * c2 - a2 * c1 ) / ( a1 * b2 - a2 * b1 );
+    }
+    else if ( b1 > 0 && b2 < 0 )  // quadrant IV
+    {
+      if( mXr != numeric_limits<double>::max() ) return ( -a2 * mXr + c2 ) / b2;
+
+      return numeric_limits<double>::lowest();
+    }
+    else                          // quadrant III
+    {
+      if( mXr != numeric_limits<double>::max() ) return ( -a1 * mXr + c1 ) / b1;
+
+      return numeric_limits<double>::lowest();
+    }
+  }
+  else
+  {
+    if      ( b1 > 0 && b2 < 0 )  // right
+    {
+      if( mXr != numeric_limits<double>::max() ) return ( -a2 * mXr + c2 ) / b2;
+
+      return numeric_limits<double>::lowest();
+    }
+    else if ( b1 < 0 && b2 > 0 )  // left
+    {
+      if( mXl != numeric_limits<double>::lowest() ) return ( -a1 * mXl + c1 ) / b1;
+
+      return numeric_limits<double>::lowest();
+    }
+    else                          // up
+    {
+      double x = ( b2 * c1 - b1 * c2 ) / ( a1 * b2 - a2 * b1 );
+
+      if( x < mXl ) return ( -a1 * mXl + c1 ) / b1;
+      if( x > mXr ) return ( -a2 * mXr + c2 ) / b2;
+
+      return ( a1 * c2 - a2 * c1 ) / ( a1 * b2 - a2 * b1 );
+    }
+  }
 }
 
 void LP2D::removeConstraint( ConstraintList &constraints, Iterator &it1, Iterator &it2, bool removeIt1 )

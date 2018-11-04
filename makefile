@@ -22,6 +22,7 @@ release: ${PROG}
 debug: CXXFLAGS += -g -Wall
 debug: ${PROG}
 
+test: CXXFLAGS += -DNDEBUG
 test: debug
 	${MAKE} -C ${testDir}
 
