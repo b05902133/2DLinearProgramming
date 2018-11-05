@@ -141,6 +141,7 @@ double LP2D::iterate()
       }
       mXl = mXm;
     }
+    if( mXr < mXl ) return numeric_limits<double>::max();
   }
   return solveReduced();
 }
@@ -172,9 +173,12 @@ void LP2D::collectRxs(  ConstraintList &I, IType iType,
 
      if( a1 == a2 && b1 == b2 ) // parallel
      {
+       double yShift1 = c1 / b1;
+       double yShift2 = c2 / b2;
+
        removeConstraint(  I, it1, it2,
-                          ( ( iType == IType::plus   && c1 > c2 ) ||
-                            ( iType == IType::minus  && c1 < c2 ) ) );
+                          ( ( iType == IType::plus   && yShift1 > yShift2 ) ||
+                            ( iType == IType::minus  && yShift1 < yShift2 ) ) );
        continue;
      }
 
@@ -315,6 +319,32 @@ double LP2D::solveReduced()
   double c2     = get<2>( *it2 );
   double slope1 = -a1 / b1;
   double slope2 = -a2 / b2;
+
+  if( slope1 == slope2 )
+  {
+    double yShift1 = c1 / b1;
+    double yShift2 = c2 / b2;
+
+    if      ( b1 > 0 && b2 < 0 )
+    {
+      if( yShift2 > yShift1 ) return numeric_limits<double>::max();
+
+      return ( slope2 > 0 ) ? ( -a2 * mXl + c2 ) / b2 : ( -a2 * mXr + c2 ) / b2;
+    }
+    else if ( b1 < 0 && b2 > 0 )
+    {
+      if( yShift1 > yShift2 ) return numeric_limits<double>::max();
+
+      return ( slope1 > 0 ) ? ( -a1 * mXl + c1 ) / b1 : ( -a1 * mXr + c1 ) / b1;
+    }
+    else // b1 < 0 && b2 < 0
+    {
+      if( yShift1 > yShift2 )
+        return ( slope1 > 0 ) ? ( -a1 * mXl + c1 ) / b1 : ( -a1 * mXr + c1 ) / b1;
+      else
+        return ( slope2 > 0 ) ? ( -a2 * mXl + c2 ) / b2 : ( -a2 * mXr + c2 ) / b2;
+    }
+  }
 
   if      ( slope2 > 0 )  // all slope > 0
   {
