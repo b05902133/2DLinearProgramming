@@ -6,6 +6,11 @@
 #include <utility>
 #include <list>
 
+#include "Constraint.h"
+
+namespace LinearProgramming
+{
+
 class LP2D
 {
   public:
@@ -26,8 +31,6 @@ class LP2D
       right,
       equal
     };
-
-    using Constraint = std::tuple<double,double,double>; // a, b, c
 
     double solve( const std::vector<Constraint> &constraints );
 
@@ -64,5 +67,7 @@ class LP2D
     Bound   mS;
     Bound   mT;
 };
+
+}
 
 #endif

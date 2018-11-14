@@ -4,13 +4,14 @@
 using namespace std;
 
 #include "LP.h"
+using namespace LinearProgramming;
 
 int main()
 {
-  LP2D                      solver;
-  vector<LP2D::Constraint>  constraints;
-  int                       constraintNum;
-  double                    yMin;
+  LP2D                solver;
+  vector<Constraint>  constraints;
+  int                 constraintNum;
+  double              yMin;
 
   cin >> constraintNum;
 
@@ -22,7 +23,7 @@ int main()
 
      cin >> a >> b >> c;
 
-     constraints.push_back( make_tuple( a, b, c ) );
+     constraints.push_back( Constraint( a, b, c ) );
   }
 
   yMin = round( solver.solve( constraints ) );

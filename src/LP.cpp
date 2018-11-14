@@ -13,6 +13,9 @@ using namespace std;
 
 #include "Select.h"
 
+namespace LinearProgramming
+{
+
 // public member functions
 /*!
  *  \return
@@ -37,22 +40,18 @@ void LP2D::init( const std::vector<Constraint> &constraints )
 
   for( const Constraint &constraint : constraints )
   {
-     double b = get<1>( constraint );
-
-     if( b == 0 )
+     if( constraint.b() == 0 )
      {
-       double a = get<0>( constraint );
-       double c = get<2>( constraint );
-       double x = abs( c / a );
+       double x = constraint.xIntercept();
 
        if( x < mXl || x > mXr ) continue;
 
-       if( a > 0 ) // x <= abc( c / a )
+       if( constraint.a() > 0 ) // x <= abc( c / a )
          mXr = min( mXr, x );
-       else if( a < 0 ) // x >= abc( c / a )
+       else if( constraint.a() < 0 ) // x >= abc( c / a )
          mXl = max( mXl, x );
      }
-     else if( b > 0 )
+     else if( constraint.b() > 0 )
        mIp.push_back( constraint );
      else // b < 0
        mIn.push_back( constraint );
@@ -93,12 +92,7 @@ double LP2D::iterate()
       for( i = 0 ; i < rxs.size() ; ++i )
          if( rxs[i] == mXm ) break;
 
-      const Constraint  &constraint = *get<1>( rxSources[i] );
-      const double      a           = get<0>( constraint    );
-      const double      b           = get<1>( constraint    );
-      const double      c           = get<2>( constraint    );
-
-      return ( c - a * mXm ) / b;
+      return get<1>( rxSources[i] )->y( mXm );
     }
 
     if( optPosition == RelativePosition::left )
@@ -109,15 +103,11 @@ double LP2D::iterate()
 
          Iterator it1 = get<1>( rxSources[i] );
          Iterator it2 = get<2>( rxSources[i] );
-         double   a1  = get<0>( *it1 );
-         double   b1  = get<1>( *it1 );
-         double   a2  = get<0>( *it2 );
-         double   b2  = get<1>( *it2 );
 
          if( get<0>( rxSources[i] ) == IType::plus )
-           removeConstraint( mIp, it1, it2, -a1 / b1 < -a2 / b2 );
+           removeConstraint( mIp, it1, it2, it1->slope() < it2->slope() );
          else
-           removeConstraint( mIn, it1, it2, -a1 / b1 > -a2 / b2 );
+           removeConstraint( mIn, it1, it2, it1->slope() > it2->slope() );
       }
       mXr = mXm;
     }
@@ -129,15 +119,11 @@ double LP2D::iterate()
 
          Iterator it1 = get<1>( rxSources[i] );
          Iterator it2 = get<2>( rxSources[i] );
-         double   a1  = get<0>( *it1 );
-         double   b1  = get<1>( *it1 );
-         double   a2  = get<0>( *it2 );
-         double   b2  = get<1>( *it2 );
 
          if( get<0>( rxSources[i] ) == IType::plus )
-           removeConstraint( mIp, it1, it2, -a1 / b1 > -a2 / b2 );
+           removeConstraint( mIp, it1, it2, it1->slope() > it2->slope() );
          else
-           removeConstraint( mIn, it1, it2, -a1 / b1 < -a2 / b2 );
+           removeConstraint( mIn, it1, it2, it1->slope() < it2->slope() );
       }
       mXl = mXm;
     }
@@ -146,12 +132,6 @@ double LP2D::iterate()
   return solveReduced();
 }
 
-/*
- *  a1 * x + b1 * y = c1
- *  a2 * x + b2 * y = c2
- *
- *  => x = ( b2 * c1 - b1 * c2 ) / ( a1 * b2 - a2 * b1 )
- */
 void LP2D::collectRxs(  ConstraintList &I, IType iType,
                         std::vector<double> &rxs,
                         std::vector<RxSource> &rxSources )
@@ -163,18 +143,12 @@ void LP2D::collectRxs(  ConstraintList &I, IType iType,
         it1 != I.end() && it2 != I.end() ;
         ++( ++it1 ), ++( ++it2 ) )
   {
-     double a1 = get<0>( *it1 );
-     double b1 = get<1>( *it1 );
-     double c1 = get<2>( *it1 );
-     double a2 = get<0>( *it2 );
-     double b2 = get<1>( *it2 );
-     double c2 = get<2>( *it2 );
      double rx;
 
-     if( a1 == a2 && b1 == b2 ) // parallel
+     if( isParallel( *it1, *it2 ) ) // parallel
      {
-       double yShift1 = c1 / b1;
-       double yShift2 = c2 / b2;
+       double yShift1 = it1->yIntercept();
+       double yShift2 = it2->yIntercept();
 
        removeConstraint(  I, it1, it2,
                           ( ( iType == IType::plus   && yShift1 > yShift2 ) ||
@@ -182,21 +156,21 @@ void LP2D::collectRxs(  ConstraintList &I, IType iType,
        continue;
      }
 
-     rx = ( b2 * c1 - b1 * c2 ) / ( a1 * b2 - a2 * b1 );
+     rx = intersectX( *it1, *it2 );
 
      if( rx < mXl )
      {
        removeConstraint(  I, it1, it2,
-                          ( ( iType == IType::plus   && ( -a1 / b1 > -a2 / b2 ) ) ||
-                            ( iType == IType::minus  && ( -a1 / b1 < -a2 / b2 ) ) ) );
+                          ( ( iType == IType::plus   && ( it1->slope() > it2->slope() ) ) ||
+                            ( iType == IType::minus  && ( it1->slope() < it2->slope() ) ) ) );
        continue;
      }
 
      if( rx > mXr )
      {
        removeConstraint(  I, it1, it2,
-                          ( ( iType == IType::plus   && ( -a1 / b1 < -a2 / b2 ) ) ||
-                            ( iType == IType::minus  && ( -a1 / b1 > -a2 / b2 ) ) ) );
+                          ( ( iType == IType::plus   && ( it1->slope() < it2->slope() ) ) ||
+                            ( iType == IType::minus  && ( it1->slope() > it2->slope() ) ) ) );
        continue;
      }
 
@@ -216,35 +190,20 @@ void LP2D::evalParams()
 
   // evaluate alpha y
   for( const Constraint &constraint : mIn )
-  {
-     double a = get<0>( constraint );
-     double b = get<1>( constraint );
-     double c = get<2>( constraint );
-
-     mAlpha = max( mAlpha, ( -a * mXm + c ) / b );
-  }
+     mAlpha = max( mAlpha, constraint.y( mXm ) );
   // end evaluate alpha y
 
   // evaluate beta y
   for( const Constraint &constraint : mIp )
-  {
-     double a = get<0>( constraint );
-     double b = get<1>( constraint );
-     double c = get<2>( constraint );
-
-     mBeta = min( mBeta, ( -a * mXm + c ) / b );
-  }
+     mBeta = min( mBeta, constraint.y( mXm ) );
   // end evaluate beta y
 
   // evaluate s_max, s_min
   for( const Constraint &constraint : mIn )
   {
-     double a     = get<0>( constraint );
-     double b     = get<1>( constraint );
-     double c     = get<2>( constraint );
-     double slope = -a / b;
+     double slope = constraint.slope();
 
-     if( round( a * mXm + b * mAlpha ) != c ) continue;
+     if( round( constraint.a() * mXm + constraint.b() * mAlpha ) != constraint.c() ) continue;
 
      get<0>( mS ) = min( get<0>( mS ), slope );
      get<1>( mS ) = max( get<1>( mS ), slope );
@@ -254,12 +213,9 @@ void LP2D::evalParams()
   // evaluate t_max, t_min
   for( const Constraint &constraint : mIp )
   {
-     double a     = get<0>( constraint );
-     double b     = get<1>( constraint );
-     double c     = get<2>( constraint );
-     double slope = -a / b;
+     double slope = constraint.slope();
 
-     if( round( a * mXm + b * mBeta ) != c ) continue;
+     if( round( constraint.a() * mXm + constraint.b() * mBeta ) != constraint.c() ) continue;
 
      get<0>( mT ) = min( get<0>( mT ), slope );
      get<1>( mT ) = max( get<1>( mT ), slope );
@@ -283,12 +239,6 @@ LP2D::RelativePosition LP2D::evalOptPosition()
   }
 }
 
-/*
- *  a1 * x + b1 * y = c1
- *  a2 * x + b2 * y = c2
- *
- *  => y = ( a1 * c2 - a2 * c1 ) / ( a1 * b2 - a2 * b1 )
- */
 double LP2D::solveReduced()
 {
   assert( mIn.empty() || mIn.size() + mIp.size() <= mSizeSmall ); // precondition
@@ -308,114 +258,108 @@ double LP2D::solveReduced()
   Iterator it2 = ++constraints.begin();
 
   // make sure slope of it1 > slope of it2
-  if( -get<0>( *it1 ) / get<1>( *it1 ) < -get<0>( *it2 ) / get<1>( *it2 ) )
+  if( it1->slope() < it2->slope() )
     swap( it1, it2 );
 
-  double a1     = get<0>( *it1 );
-  double b1     = get<1>( *it1 );
-  double c1     = get<2>( *it1 );
-  double a2     = get<0>( *it2 );
-  double b2     = get<1>( *it2 );
-  double c2     = get<2>( *it2 );
-  double slope1 = -a1 / b1;
-  double slope2 = -a2 / b2;
+  double slope1 = it1->slope();
+  double slope2 = it2->slope();
 
   if( slope1 == slope2 )
   {
-    double yShift1 = c1 / b1;
-    double yShift2 = c2 / b2;
+    double yShift1 = it1->yIntercept();
+    double yShift2 = it2->yIntercept();
 
-    if      ( b1 > 0 && b2 < 0 )
+    if      ( it1->b() > 0 && it2->b() < 0 )
     {
       if( yShift2 > yShift1 ) return numeric_limits<double>::max();
 
-      return ( slope2 > 0 ) ? ( -a2 * mXl + c2 ) / b2 : ( -a2 * mXr + c2 ) / b2;
+      return ( slope2 > 0 ) ? it2->y( mXl ) : it2->y( mXr );
     }
-    else if ( b1 < 0 && b2 > 0 )
+    else if ( it1->b() < 0 && it2->b() > 0 )
     {
       if( yShift1 > yShift2 ) return numeric_limits<double>::max();
 
-      return ( slope1 > 0 ) ? ( -a1 * mXl + c1 ) / b1 : ( -a1 * mXr + c1 ) / b1;
+      return ( slope1 > 0 ) ? it1->y( mXl ): it1->y( mXr );
     }
     else // b1 < 0 && b2 < 0
     {
       if( yShift1 > yShift2 )
-        return ( slope1 > 0 ) ? ( -a1 * mXl + c1 ) / b1 : ( -a1 * mXr + c1 ) / b1;
+        return ( slope1 > 0 ) ? it1->y( mXl ): it1->y( mXr );
       else
-        return ( slope2 > 0 ) ? ( -a2 * mXl + c2 ) / b2 : ( -a2 * mXr + c2 ) / b2;
+        return ( slope2 > 0 ) ? it2->y( mXl ): it2->y( mXr );
     }
   }
 
   if      ( slope2 > 0 )  // all slope > 0
   {
-    if      ( b1 > 0 && b2 < 0 )  // quadrant I
+    if      ( it1->b() > 0 && it2->b() < 0 )  // quadrant I
     {
-      double x = ( b2 * c1 - b1 * c2 ) / ( a1 * b2 - a2 * b1 );
+      double x = intersectX( *it1, *it2 );
 
       if( x > mXr ) return numeric_limits<double>::max();
-      if( x < mXl ) return ( -a2 * mXl + c2 ) / b2;
+      if( x < mXl ) return it2->y( mXl );
 
-      return ( a1 * c2 - a2 * c1 ) / ( a1 * b2 - a2 * b1 );
+      return intersectY( *it1, *it2 );
     }
-    else if ( b1 < 0 && b2 > 0 )  // quadrant III
+    else if ( it1->b() < 0 && it2->b() > 0 )  // quadrant III
     {
-      if( mXl != numeric_limits<double>::lowest() ) return ( -a1 * mXl + c1 ) / b1;
+      if( mXl != numeric_limits<double>::lowest() ) return it1->y( mXl );
 
       return numeric_limits<double>::lowest();
     }
     else                          // quadrant II
     {
-      if( mXl != numeric_limits<double>::lowest() ) return ( -a2 * mXl + c2 ) / b2;
+      if( mXl != numeric_limits<double>::lowest() ) return it2->y( mXl );
 
       return numeric_limits<double>::lowest();
     }
   }
   else if ( slope1 < 0 )  // all slope < 0
   {
-    if      ( b1 < 0 && b2 > 0 )  // quadrant II
+    if      ( it1->b() < 0 && it2->b() > 0 )  // quadrant II
     {
-      double x = ( b2 * c1 - b1 * c2 ) / ( a1 * b2 - a2 * b1 );
+      double x = intersectX( *it1, *it2 );
 
       if( x < mXl ) return numeric_limits<double>::max();
-      if( x > mXr ) return ( -a1 * mXr + c1 ) / b1;
+      if( x > mXr ) return it1->y( mXr );
 
-      return ( a1 * c2 - a2 * c1 ) / ( a1 * b2 - a2 * b1 );
+      return intersectY( *it1, *it2 );
     }
-    else if ( b1 > 0 && b2 < 0 )  // quadrant IV
+    else if ( it1->b() > 0 && it2->b() < 0 )  // quadrant IV
     {
-      if( mXr != numeric_limits<double>::max() ) return ( -a2 * mXr + c2 ) / b2;
+      if( mXr != numeric_limits<double>::max() ) return it2->y( mXr );
 
       return numeric_limits<double>::lowest();
     }
     else                          // quadrant III
     {
-      if( mXr != numeric_limits<double>::max() ) return ( -a1 * mXr + c1 ) / b1;
+      if( mXr != numeric_limits<double>::max() ) return it1->y( mXr );
 
       return numeric_limits<double>::lowest();
     }
   }
   else
   {
-    if      ( b1 > 0 && b2 < 0 )  // right
+    if      ( it1->b() > 0 && it2->b() < 0 )  // right
     {
-      if( mXr != numeric_limits<double>::max() ) return ( -a2 * mXr + c2 ) / b2;
+      if( mXr != numeric_limits<double>::max() ) return it2->y( mXr );
 
       return numeric_limits<double>::lowest();
     }
-    else if ( b1 < 0 && b2 > 0 )  // left
+    else if ( it1->b() < 0 && it2->b() > 0 )  // left
     {
-      if( mXl != numeric_limits<double>::lowest() ) return ( -a1 * mXl + c1 ) / b1;
+      if( mXl != numeric_limits<double>::lowest() ) return it1->y( mXl );
 
       return numeric_limits<double>::lowest();
     }
     else                          // up
     {
-      double x = ( b2 * c1 - b1 * c2 ) / ( a1 * b2 - a2 * b1 );
+      double x = intersectX( *it1, *it2 );
 
-      if( x < mXl ) return ( -a1 * mXl + c1 ) / b1;
-      if( x > mXr ) return ( -a2 * mXr + c2 ) / b2;
+      if( x < mXl ) return it1->y( mXl );
+      if( x > mXr ) return it2->y( mXr );
 
-      return ( a1 * c2 - a2 * c1 ) / ( a1 * b2 - a2 * b1 );
+      return intersectY( *it1, *it2 );
     }
   }
 }
@@ -438,3 +382,5 @@ void LP2D::removeConstraint( ConstraintList &constraints, Iterator &it1, Iterato
   constraints.erase( it );
 }
 // end private member functions
+
+}
